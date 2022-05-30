@@ -1,5 +1,8 @@
 use std::env;
 use std::fmt;
+use std::fs;
+use std::fs::File;
+use std::io::prelude::*;
 
 type Image = image::ImageBuffer<image::Rgba<u8>, std::vec::Vec<u8>>;
 
@@ -14,6 +17,11 @@ type Image = image::ImageBuffer<image::Rgba<u8>, std::vec::Vec<u8>>;
 struct Header {
   name_length: u32,
   data_length: u32,
+}
+
+struct FileData {
+  name: String,
+  data: Vec<u8>,
 }
 
 impl fmt::Debug for Header {
@@ -35,9 +43,13 @@ fn write_byte_vector_to_image(img: &mut Image, pixel_cursor: &mut u32, bytes: &V
 }
 
 // TODO take into account multiple rows of pixels
-fn get_pixel_position(_img: &Image, start_pos: &u32) -> (u32, u32) {
-  let x = *start_pos;
-  let y = 0 as u32;
+fn get_pixel_position(img: &Image, pixel_index: &u32) -> (u32, u32) {
+  let y = ((pixel_index / img.width()) as f64).floor() as u32;
+  let x = pixel_index % img.width();
+
+  if x > img.width() || y > img.height() {
+    panic!("Pixel index out of bounds");
+  }
 
   (x, y)
 }
@@ -146,31 +158,44 @@ fn read_header(img: &Image, pixel_cursor: &mut u32) -> Header {
   }
 }
 
-fn encode(img: &mut Image, data: &String, file_name: &String) {
-  let mut pixel_cursor: u32 = 0;
-
-  let data_bytes = convert_string_to_bytes(data);
-  let name_bytes = convert_string_to_bytes(file_name);
-
-  write_header(img, &data_bytes, &name_bytes, &mut pixel_cursor);
-
-  write_byte_vector_to_image(img, &mut pixel_cursor, &name_bytes);
-  write_byte_vector_to_image(img, &mut pixel_cursor, &data_bytes);
+fn get_data_bytes_from_file(file_path: &str) -> Vec<u8> {
+  let mut file = fs::File::open(file_path).unwrap();
+  let mut data = Vec::new();
+  file.read_to_end(&mut data).unwrap();
+  data
 }
 
-fn decode(img: &Image) {
+fn get_image_capacity(img: &Image) -> u32 {
+  img.height() * img.width() - 1000 // Remove 1000 for the header
+}
+
+fn encode(img: &mut Image, data: &Vec<u8>, name: &Vec<u8>) {
+  println!("Encoding image 🥷");
+  let mut pixel_cursor: u32 = 0;
+
+  write_header(img, &data, &name, &mut pixel_cursor);
+  println!("Encoded Header ✅");
+
+  write_byte_vector_to_image(img, &mut pixel_cursor, &name);
+  write_byte_vector_to_image(img, &mut pixel_cursor, &data);
+  println!("Encoded Data ✅");
+}
+
+fn decode(img: &Image) -> FileData {
+  println!("Decoding image 🔎");
   let mut pixel_cursor: u32 = 0;
 
   let header = read_header(img, &mut pixel_cursor);
+  println!("Decoded Header ✅");
 
   let file_name_bytes = read_bytes_from_image(img, &mut pixel_cursor, &header.name_length);
-  let file_name = construct_string_from_byte_vector(&file_name_bytes);
-
   let data_bytes = read_bytes_from_image(img, &mut pixel_cursor, &header.data_length);
-  let data = construct_string_from_byte_vector(&data_bytes);
+  println!("Decoded Data ✅");
 
-  println!("{}", data);
-  println!("{}", file_name);
+  FileData {
+    name: construct_string_from_byte_vector(&file_name_bytes),
+    data: data_bytes,
+  }
 }
 
 fn main() {
@@ -179,23 +204,34 @@ fn main() {
   let image_file = &args[1];
   let target_file = &args[2];
 
-  println!("Image F***");
-
   let mut img = image::open(&image_file)
     .expect("error reading image file")
     .to_rgba8();
 
-  let data = String::from("Hello World!");
+  let data = get_data_bytes_from_file(&target_file);
 
-  encode(&mut img, &data, &target_file);
+  println!(
+    "Space used in image: {:.1}% {:.1}MB",
+    ((data.len() as f64) / (get_image_capacity(&img) as f64)) * 100.0,
+    (data.len() as f64) / (1024.0 * 1024.0)
+  );
+
+  encode(&mut img, &data, &convert_string_to_bytes(&target_file));
 
   img.save("out.png").expect("error saving image");
+
+  println!("\n\n\n");
 
   let out_img = image::open("out.png")
     .expect("error reading image file")
     .to_rgba8();
 
-  decode(&out_img);
+  let decoded = decode(&out_img);
+
+  // save decoded file
+
+  let mut file = File::create(String::from("out-") + &decoded.name).unwrap();
+  file.write_all(&decoded.data).unwrap();
 }
 
 #[cfg(test)]
@@ -229,5 +265,18 @@ mod tests {
 
       assert_eq!(byte, read_byte);
     }
+  }
+
+  #[test]
+  fn test_get_pixel_position() {
+    let img = image::open(&"test-cat.jpeg")
+      .expect("error reading image file")
+      .to_rgba8();
+
+    assert_eq!(get_pixel_position(&img, &0), (0, 0));
+    assert_eq!(get_pixel_position(&img, &10), (10, 0));
+    assert_eq!(get_pixel_position(&img, &1000), (232, 1));
+    assert_eq!(get_pixel_position(&img, &10000), (16, 13));
+    assert_eq!(get_pixel_position(&img, &100000), (160, 130));
   }
 }
