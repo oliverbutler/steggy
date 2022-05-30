@@ -5,8 +5,8 @@ cargo build --release
 
 # tar the binary
 cd target/release
-mv main imgfu
-tar -czvf imgfu.tar.gz imgfu
+mv main steg
+tar -czvf steg.tar.gz steg
 
 # Log the SHA256
-echo "SHA256: $(shasum imgfu.tar.gz)"
+echo "SHA256: $(shasum -a 256 steg.tar.gz)"
