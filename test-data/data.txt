@@ -1,0 +1,2 @@
+The Rust Standard Library
+The Rust Standard Library is the foundation of portable Rust software, a set of minimal and battle-tested shared abstractions for the broader Rust ecosystem. It offers core types, like Vec<T> and Option<T>, library-defined operations on language primitives, standard macros, I/O and multithreading, among many other things.

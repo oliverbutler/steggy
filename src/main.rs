@@ -1,8 +1,46 @@
-use std::env;
+use clap::{Parser, Subcommand};
 use std::fmt;
 use std::fs;
-use std::fs::File;
 use std::io::prelude::*;
+
+/// A steganography tool written in Rust
+#[derive(Debug, Parser)]
+#[clap(name = "img-fu")]
+#[clap(about = "A steganography tool written in Rust", long_about = None)]
+struct Cli {
+  #[clap(subcommand)]
+  command: Commands,
+}
+
+#[derive(Debug, Subcommand)]
+enum Commands {
+  /// Encodes Data
+  #[clap(arg_required_else_help = true)]
+  Encode {
+    /// Image to hide data within
+    #[clap(short, long)]
+    image: String,
+
+    /// Data to hide
+    #[clap(short, long)]
+    file: String,
+
+    /// Output file
+    #[clap(short, long)]
+    output: String,
+  },
+  /// Decodes Data
+  #[clap(arg_required_else_help = true)]
+  Decode {
+    /// Image to hide data within
+    #[clap(short, long)]
+    image: String,
+
+    /// Output file, or use original file name
+    #[clap(short, long)]
+    output: Option<String>,
+  },
+}
 
 type Image = image::ImageBuffer<image::Rgba<u8>, std::vec::Vec<u8>>;
 
@@ -199,39 +237,57 @@ fn decode(img: &Image) -> FileData {
 }
 
 fn main() {
-  let args: Vec<String> = env::args().collect();
+  let args = Cli::parse();
 
-  let image_file = &args[1];
-  let target_file = &args[2];
+  match args.command {
+    Commands::Encode {
+      image,
+      file,
+      output,
+    } => {
+      let mut img = image::open(&image)
+        .expect("error reading image file")
+        .to_rgba8();
 
-  let mut img = image::open(&image_file)
-    .expect("error reading image file")
-    .to_rgba8();
+      let data = get_data_bytes_from_file(&file);
+      let percent_used = ((data.len() as f64) / (get_image_capacity(&img) as f64)) * 100.0;
 
-  let data = get_data_bytes_from_file(&target_file);
+      if percent_used > 99.9 {
+        println!("Image is too small to fit the data");
+        return;
+      }
 
-  println!(
-    "Space used in image: {:.1}% {:.1}MB",
-    ((data.len() as f64) / (get_image_capacity(&img) as f64)) * 100.0,
-    (data.len() as f64) / (1024.0 * 1024.0)
-  );
+      println!(
+        "Space used in image: {:.1}% Data Size: {:.1}MB",
+        percent_used,
+        (data.len() as f64) / (1024.0 * 1024.0)
+      );
 
-  encode(&mut img, &data, &convert_string_to_bytes(&target_file));
+      let file_name_without_initial_slashes = String::from(file.split("/").last().unwrap());
 
-  img.save("out.png").expect("error saving image");
+      encode(
+        &mut img,
+        &data,
+        &convert_string_to_bytes(&file_name_without_initial_slashes),
+      );
 
-  println!("\n\n\n");
+      img.save(output).expect("error saving image");
+    }
+    Commands::Decode { image, output } => {
+      let img = image::open(&image)
+        .expect("error reading image file")
+        .to_rgba8();
+      let file_data = decode(&img);
 
-  let out_img = image::open("out.png")
-    .expect("error reading image file")
-    .to_rgba8();
+      let file_name = match output {
+        Some(output) => output,
+        None => file_data.name,
+      };
 
-  let decoded = decode(&out_img);
-
-  // save decoded file
-
-  let mut file = File::create(String::from("out-") + &decoded.name).unwrap();
-  file.write_all(&decoded.data).unwrap();
+      let mut file = fs::File::create(file_name).expect("error creating file");
+      file.write_all(&file_data.data).expect("error writing file");
+    }
+  }
 }
 
 #[cfg(test)]
@@ -278,5 +334,23 @@ mod tests {
     assert_eq!(get_pixel_position(&img, &1000), (232, 1));
     assert_eq!(get_pixel_position(&img, &10000), (16, 13));
     assert_eq!(get_pixel_position(&img, &100000), (160, 130));
+  }
+
+  #[test]
+  fn test_e2e_encode_decode() {
+    let img = image::open(&"test-data/cat.jpeg")
+      .expect("error reading image file")
+      .to_rgba8();
+
+    let data = get_data_bytes_from_file("test-data/data.txt");
+    let name = "data.txt".to_string();
+
+    let mut img_copy = img.clone();
+    encode(&mut img_copy, &data, &convert_string_to_bytes(&name));
+
+    let file_data = decode(&img_copy);
+
+    assert_eq!(file_data.name, name);
+    assert_eq!(file_data.data, data);
   }
 }
