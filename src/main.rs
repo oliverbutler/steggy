@@ -207,7 +207,7 @@ fn get_image_capacity(img: &Image) -> u32 {
   img.height() * img.width() - 1000 // Remove 1000 for the header
 }
 
-fn encode(img: &mut Image, data: &Vec<u8>, name: &Vec<u8>) {
+fn encode_data(img: &mut Image, data: &Vec<u8>, name: &Vec<u8>) {
   println!("Encoding image 🥷");
   let mut pixel_cursor: u32 = 0;
 
@@ -219,7 +219,7 @@ fn encode(img: &mut Image, data: &Vec<u8>, name: &Vec<u8>) {
   println!("Encoded Data ✅");
 }
 
-fn decode(img: &Image) -> FileData {
+fn decode_data(img: &Image) -> FileData {
   println!("Decoding image 🔎");
   let mut pixel_cursor: u32 = 0;
 
@@ -236,6 +236,51 @@ fn decode(img: &Image) -> FileData {
   }
 }
 
+fn encode(image_path: &String, data_path: &String, output_path: &String) {
+  let mut img = image::open(&image_path)
+    .expect("error reading image file")
+    .to_rgba8();
+
+  let data = get_data_bytes_from_file(&data_path);
+  let percent_used = ((data.len() as f64) / (get_image_capacity(&img) as f64)) * 100.0;
+
+  if percent_used > 99.9 {
+    println!("Image is too small to fit the data");
+    return;
+  }
+
+  println!(
+    "Space used in image: {:.1}% Data Size: {:.1}MB",
+    percent_used,
+    (data.len() as f64) / (1024.0 * 1024.0)
+  );
+
+  let file_name_without_initial_slashes = String::from(data_path.split("/").last().unwrap());
+
+  encode_data(
+    &mut img,
+    &data,
+    &convert_string_to_bytes(&file_name_without_initial_slashes),
+  );
+
+  img.save(output_path).expect("error saving image");
+}
+
+fn decode(image_path: &String, output_path: Option<String>) {
+  let img = image::open(&image_path)
+    .expect("error reading image file")
+    .to_rgba8();
+  let file_data = decode_data(&img);
+
+  let file_name = match output_path {
+    Some(output) => output,
+    None => file_data.name,
+  };
+
+  let mut file = fs::File::create(file_name).expect("error creating file");
+  file.write_all(&file_data.data).expect("error writing file");
+}
+
 fn main() {
   let args = Cli::parse();
 
@@ -244,49 +289,8 @@ fn main() {
       image,
       file,
       output,
-    } => {
-      let mut img = image::open(&image)
-        .expect("error reading image file")
-        .to_rgba8();
-
-      let data = get_data_bytes_from_file(&file);
-      let percent_used = ((data.len() as f64) / (get_image_capacity(&img) as f64)) * 100.0;
-
-      if percent_used > 99.9 {
-        println!("Image is too small to fit the data");
-        return;
-      }
-
-      println!(
-        "Space used in image: {:.1}% Data Size: {:.1}MB",
-        percent_used,
-        (data.len() as f64) / (1024.0 * 1024.0)
-      );
-
-      let file_name_without_initial_slashes = String::from(file.split("/").last().unwrap());
-
-      encode(
-        &mut img,
-        &data,
-        &convert_string_to_bytes(&file_name_without_initial_slashes),
-      );
-
-      img.save(output).expect("error saving image");
-    }
-    Commands::Decode { image, output } => {
-      let img = image::open(&image)
-        .expect("error reading image file")
-        .to_rgba8();
-      let file_data = decode(&img);
-
-      let file_name = match output {
-        Some(output) => output,
-        None => file_data.name,
-      };
-
-      let mut file = fs::File::create(file_name).expect("error creating file");
-      file.write_all(&file_data.data).expect("error writing file");
-    }
+    } => encode(&image, &file, &output),
+    Commands::Decode { image, output } => decode(&image, output),
   }
 }
 
@@ -346,9 +350,9 @@ mod tests {
     let name = "data.txt".to_string();
 
     let mut img_copy = img.clone();
-    encode(&mut img_copy, &data, &convert_string_to_bytes(&name));
+    encode_data(&mut img_copy, &data, &convert_string_to_bytes(&name));
 
-    let file_data = decode(&img_copy);
+    let file_data = decode_data(&img_copy);
 
     assert_eq!(file_data.name, name);
     assert_eq!(file_data.data, data);
