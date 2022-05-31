@@ -2,6 +2,8 @@
 
 Written in Rust, features a simple cli and a client-side webapp. This tool hides data within the least significant bit of an image. Obfuscation techniques are utilized to make the
 
+![steg.png](/steg.png)
+
 ## Install
 
 ```bash
