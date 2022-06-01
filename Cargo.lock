@@ -397,15 +397,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "main"
-version = "0.1.0"
-dependencies = [
- "bitvec",
- "clap",
- "image",
-]
-
-[[package]]
 name = "memoffset"
 version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -618,6 +609,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c530c2b0d0bf8b69304b39fe2001993e267461948b890cd037d8ad4293fa1a0d"
 dependencies = [
  "lock_api",
+]
+
+[[package]]
+name = "steg"
+version = "0.1.0"
+dependencies = [
+ "bitvec",
+ "clap",
+ "image",
 ]
 
 [[package]]
