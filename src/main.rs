@@ -9,7 +9,7 @@ mod util;
 
 /// A steganography tool written in Rust
 #[derive(Debug, Parser)]
-#[clap(name = "steg")]
+#[clap(name = "steggy")]
 #[clap(about = "A steganography tool written in Rust", long_about = None)]
 struct Cli {
   #[clap(subcommand)]

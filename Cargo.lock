@@ -612,7 +612,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "steg"
+name = "steggy"
 version = "0.1.0"
 dependencies = [
  "bitvec",

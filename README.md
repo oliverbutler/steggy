@@ -1,14 +1,14 @@
-# Steg CLI Tool
+# Steggy CLI Tool
 
 Written in Rust, features a simple cli and a client-side webapp. This tool hides data within the least significant bit of an image. Obfuscation techniques are utilized to make the
 
-![steg.png](/steg.png)
+![steg.png](/steggy.png)
 
 ## Install
 
 ```bash
-brew tap oliverbutler/steg
-brew install steg
+brew tap oliverbutler/steggy
+brew install steggy
 ```
 
 ## Usage
@@ -16,7 +16,7 @@ brew install steg
 ### Encode
 
 ```bash
-steg encode -f secret.txt -i image.jpg -o out.png
+steggy encode -f secret.txt -i image.jpg -o out.png
 ```
 
 ### Decode
@@ -24,12 +24,12 @@ steg encode -f secret.txt -i image.jpg -o out.png
 Decode will output the image inside an encoded image in the same path, optionally allows an output path for the resulting data.
 
 ```bash
-steg decode -i out.png
+steggy decode -i out.png
 ```
 
 # Image Data Structure
 
-This is the structure of a `steg` encoded image file.
+This is the structure of a `steggy` encoded image file.
 
 | Pos  | Length   | Field          |
 | ---- | -------- | -------------- |
